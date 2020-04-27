@@ -17,8 +17,8 @@ type Map struct {
 	hashMap  map[int]string
 }
 
-// NewMap create a Map instance
-func NewMap(replicas int, fn Hash) *Map {
+// New create a Map instance
+func New(replicas int, fn Hash) *Map {
 	m := &Map{
 		replicas: replicas,
 		hash:     fn,
