@@ -2,6 +2,7 @@ package birdcache
 
 import (
 	"fmt"
+	"log"
 	"sync"
 )
 
@@ -67,9 +68,11 @@ func (g *Group) Get(key string) (ByteView, error) {
 	}
 
 	if v, ok := g.mainCache.get(key); ok {
+		log.Println("[Cache] Hit from cache", key)
 		return v, nil
 	}
 
+	log.Println("[Cache] Not in cache, get from cb", key)
 	return g.load(key)
 }
 
@@ -84,11 +87,11 @@ func (g *Group) getLocally(key string) (ByteView, error) {
 	}
 
 	value := ByteView{b: cloneBytes(bytes)}
-	g.poppulateCache(key, value)
+	g.populateCache(key, value)
 
 	return value, nil
 }
 
-func (g *Group) poppulateCache(key string, value ByteView) {
+func (g *Group) populateCache(key string, value ByteView) {
 	g.mainCache.add(key, value)
 }

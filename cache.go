@@ -1,7 +1,7 @@
 package birdcache
 
 import (
-	"cache/lru"
+	"birdcache/lru"
 	"sync"
 )
 
