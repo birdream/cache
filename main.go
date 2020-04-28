@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -22,6 +23,44 @@ var db = map[string]string{
 	"Sam":  "567",
 }
 
+func createGroup() *birdcache.Group {
+	return birdcache.NewGroup("score", 2<<10, birdcache.GetterFunc(
+		func(key string) ([]byte, error) {
+			log.Println("[Slow DB] search key", key)
+			if v, ok := db[key]; ok {
+				return []byte(v), nil
+			}
+			return nil, fmt.Errorf("%s not Exist", key)
+		},
+	))
+}
+
+func startCacheServer(addr string, addrs []string, bird *birdcache.Group) {
+	peers := birdcache.NewHTTPPool(addr)
+	peers.Set(addrs...)
+	bird.RegisterPeers(peers)
+	log.Println("birdcache is running at", addr)
+	log.Fatal(http.ListenAndServe(addr[7:], peers))
+}
+
+func startAPIServer(apiAddr string, bird *birdcache.Group) {
+	http.Handle("/api", http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			key := r.URL.Query().Get("key")
+			view, err := bird.Get(key)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/octet-stream")
+			w.Write(view.ByteSlice())
+		}))
+
+	log.Println("fontend server is running at", apiAddr)
+	log.Fatal(http.ListenAndServe(apiAddr[7:], nil))
+}
+
 func getDataFromDB(key string) ([]byte, error) {
 	log.Println("[SlowDB] search key", key)
 	if v, ok := db[key]; ok {
@@ -31,11 +70,35 @@ func getDataFromDB(key string) ([]byte, error) {
 }
 
 func main() {
-	birdcache.NewGroup("scores", 2<<10, birdcache.GetterFunc(getDataFromDB))
+	// birdcache.NewGroup("scores", 2<<10, birdcache.GetterFunc(getDataFromDB))
 
-	addr := "localhost:9999"
-	peers := birdcache.NewHTTPPool(addr)
+	// addr := "localhost:9999"
+	// peers := birdcache.NewHTTPPool(addr)
 
-	log.Println("birdcache is running at", addr)
-	log.Fatal(http.ListenAndServe(addr, peers))
+	// log.Println("birdcache is running at", addr)
+	// log.Fatal(http.ListenAndServe(addr, peers))
+
+	var port int
+	var api bool
+	flag.IntVar(&port, "port", 8001, "Geecache server port")
+	flag.BoolVar(&api, "api", false, "Start a api server?")
+	flag.Parse()
+
+	apiAddr := "http://localhost:9999"
+	addrMap := map[int]string{
+		8001: "http://localhost:8001",
+		8002: "http://localhost:8002",
+		8003: "http://localhost:8003",
+	}
+
+	var addrs []string
+	for _, v := range addrMap {
+		addrs = append(addrs, v)
+	}
+
+	gee := createGroup()
+	if api {
+		go startAPIServer(apiAddr, gee)
+	}
+	startCacheServer(addrMap[port], []string(addrs), gee)
 }

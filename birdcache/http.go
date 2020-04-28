@@ -81,7 +81,7 @@ func (p *HTTPPool) Set(peers ...string) {
 
 	for _, peer := range peers {
 		p.httpGetters[peer] = &httpGetter{
-			baseURL: peer + p.basePath
+			baseURL: peer + p.basePath,
 		}
 	}
 }
